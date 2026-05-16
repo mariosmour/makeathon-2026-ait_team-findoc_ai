@@ -30,6 +30,8 @@ def render_chat():
                         get_confidence_html(confidence),
                         unsafe_allow_html=True
                     )
+                elif msg.get("content", "").startswith("⚠️"):
+                    st.error("Σφάλμα επικοινωνίας με το backend. Δοκιμάστε ξανά.")
 
                 # Visual evidence
                 evidence = msg.get("evidence", None)

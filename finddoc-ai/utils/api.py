@@ -7,7 +7,7 @@ import base64
 
 # ===== CONFIGURATION =====
 # Change this to your backend URL
-BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = st.secrets["BACKEND_URL"] if "BACKEND_URL" in st.secrets else "http://localhost:8000"
 
 
 def upload_document(uploaded_file) -> dict:
@@ -161,7 +161,7 @@ def _mock_answer(question: str) -> dict:
                 "page": 1
             }
         }
-    elif any(word in question_lower for word in ["items", "γραμμ", "προϊόντ", "line"]):
+    elif any(word in question_lower for word in ["items", "γραμμ", "προϊόντ", "προϊοντ", "line", "τιμολόγ"]):
         return {
             "answer": "Τα line items του τιμολογίου είναι:"
                       "| # | Περιγραφή | Ποσό |"

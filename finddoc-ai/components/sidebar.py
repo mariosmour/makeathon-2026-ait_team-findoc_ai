@@ -23,11 +23,17 @@ def render_sidebar():
         )
 
         if uploaded_file is not None:
-            file_key = uploaded_file.name
+            # Fix 4: Use hash of file content as key, not just filename
+            import hashlib
+            file_bytes = uploaded_file.getvalue()
+            file_key = hashlib.md5(file_bytes).hexdigest()
 
             # Process new upload
             if file_key not in st.session_state.uploaded_files:
                 with st.spinner("📤 Processing document..."):
+                    # Fix 5: Reset file_image before processing new file
+                    st.session_state.file_image = None
+
                     # Upload to backend and get file_id
                     result = upload_document(uploaded_file)
 

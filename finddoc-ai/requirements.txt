@@ -1,0 +1,18 @@
+
+# FinDoc AI — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Web UI ────────────────────────────────────────────────
+streamlit>=1.30.0
+
+# ── Image processing (bounding box highlighting, RGBA compositing) ──
+Pillow>=10.0.0
+
+# ── HTTP client (backend API calls) ───────────────────────
+requests>=2.31.0
+
+# ── PDF support (if backend returns PDF pages as images) ──
+# Uncomment if handling PDF rendering on the frontend side:
+# pdf2image>=1.16.3
+# pypdf>=3.0.0
+

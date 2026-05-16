@@ -3,9 +3,9 @@ import streamlit as st
 from PIL import Image
 import io
 from components.sidebar import render_sidebar
-from components.chat import render_chat, process_question
+from components.chat import render_chat
 from components.evidence import render_evidence_display
-from utils.api import ask_backend, get_auto_summary
+from utils.api import ask_backend
 
 # ===== PAGE CONFIG =====
 st.set_page_config(
