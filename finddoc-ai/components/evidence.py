@@ -112,11 +112,11 @@ def render_evidence_display(image: Image.Image, bbox: dict, evidence_text: str =
     cropped_img = crop_evidence(highlighted_img, bbox)
 
     # Display in an expander for clean UI
-    with st.expander("📍 **Visual Evidence** — Click to see source", expanded=True):
+    with st.expander("**Visual Evidence** — Click to see source", expanded=True):
         col1, col2 = st.columns([1, 2])
 
         with col1:
-            st.markdown("**🔍 Zoomed Evidence:**")
+            st.markdown("**Zoomed Evidence:**")
             # Convert RGBA to RGB for display
             cropped_rgb = cropped_img.convert("RGB")
             st.image(cropped_rgb, use_container_width=True)
@@ -125,6 +125,6 @@ def render_evidence_display(image: Image.Image, bbox: dict, evidence_text: str =
                 st.markdown(f"**Found text:** `{evidence_text}`")
 
         with col2:
-            st.markdown("**📄 Full Document:**")
+            st.markdown("**Full Document:**")
             highlighted_rgb = highlighted_img.convert("RGB")
             st.image(highlighted_rgb, use_container_width=True)

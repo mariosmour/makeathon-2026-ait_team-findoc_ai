@@ -6,11 +6,11 @@ from components.evidence import render_evidence_display
 def get_confidence_html(confidence: float) -> str:
     """Return styled confidence badge"""
     if confidence >= 0.85:
-        return f'<div class="confidence-high">🟢 High Confidence ({confidence:.0%})</div>'
+        return f'<div class="confidence-high">High Confidence ({confidence:.0%})</div>'
     elif confidence >= 0.60:
-        return f'<div class="confidence-medium">🟡 Medium Confidence ({confidence:.0%})</div>'
+        return f'<div class="confidence-medium">Medium Confidence ({confidence:.0%})</div>'
     else:
-        return f'<div class="confidence-low">🔴 Low Confidence ({confidence:.0%}) — verify manually</div>'
+        return f'<div class="confidence-low">Low Confidence ({confidence:.0%}) — verify manually</div>'
 
 
 def render_chat():

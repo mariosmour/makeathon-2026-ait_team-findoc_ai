@@ -87,11 +87,9 @@ async def ask_question(request: AskRequest) -> Dict[str, Any]:
             {
                 "filename": chunk.get("filename"),
                 "page": chunk.get("page"),
-                "source_text": chunk.get("source_text") or str(chunk.get("value") or ""),
-                "value": chunk.get("value"),
+                "source_text": chunk.get("source_text"),
                 "score": chunk.get("score"),
-                "polygon": chunk.get("polygon"),
-                "confidence": chunk.get("confidence")
+                "polygon": chunk.get("polygon")
             }
             for chunk in chunks
         ]

@@ -1,8 +1,27 @@
+import os
 import uuid
 from typing import Any, Dict, List
+from supabase import create_client, Client
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# --- Σύνδεση με Database (Supabase) ---
+supabase_url = os.getenv("SUPABASE_URL", "")
+supabase_key = os.getenv("SUPABASE_KEY", "")
+supabase: Client = create_client(supabase_url, supabase_key)
+
+# --- Σύνδεση με OpenAI (για τα Vector Embeddings) ---
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 
-DOCUMENT_STORE: Dict[str, Dict[str, Any]] = {}
+def get_embedding(text: str) -> List[float]:
+    response = openai_client.embeddings.create(
+        input=text,
+        model="text-embedding-3-small"
+    )
+    return response.data[0].embedding
 
 
 def build_chunks(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -73,94 +92,77 @@ def add_document(analysis: Dict[str, Any]) -> Dict[str, Any]:
     doc_id = str(uuid.uuid4())
     chunks = build_chunks(analysis)
 
-    DOCUMENT_STORE[doc_id] = {
+    # Insert document metadata into Supabase
+    supabase.table("documents").insert({
         "doc_id": doc_id,
         "filename": analysis["filename"],
-        "analysis": analysis,
+        "fields": analysis.get("fields", {}),
+        "line_items": analysis.get("line_items", []),
+        "raw_text": analysis.get("raw_text", "")
+    }).execute()
+
+    # Generate embeddings and insert chunks
+    chunk_records = []
+    for chunk in chunks:
+        emb = get_embedding(chunk["text"])
+        chunk_records.append({
+            "doc_id": doc_id,
+            "filename": chunk.get("filename"),
+            "page": chunk.get("page"),
+            "source_text": chunk.get("text"),
+            "polygon": chunk.get("polygon"),
+            "embedding": emb
+        })
+
+    if chunk_records:
+        supabase.table("document_chunks").insert(chunk_records).execute()
+
+    return {
+        "doc_id": doc_id,
+        "filename": analysis["filename"],
         "chunks": chunks
     }
 
-    return DOCUMENT_STORE[doc_id]
-
-
-def simple_score(question: str, text: str, chunk: Dict[str, Any]) -> float:
-    q = question.lower()
-
-    field_name = str(chunk.get("field_name", "")).lower()
-    chunk_type = str(chunk.get("type", "")).lower()
-    chunk_text = text.lower()
-
-    score = 0.0
-
-    # Strong field-specific rules
-    if any(word in q for word in ["invoice id", "invoice number", "αριθμός", "αριθμο", "id", "κωδικός", "κωδικο"]):
-        if field_name in ["invoiceid", "invoicenumber"]:
-            score += 10
-
-    if any(word in q for word in [
-        "date", "when", "issued", "issue", "receipt date", "invoice date",
-        "ημερομηνία", "ημερομηνια", "πότε", "ποτε",
-        "εκδόθηκε", "εκδοθηκε", "έκδοση", "εκδοση"
-    ]):
-        if field_name in [
-            "invoicedate", "receiptdate", "transactiondate", "issuedate", "date"
-        ]:
-            score += 10
-
-    if any(word in q for word in ["total", "amount", "σύνολο", "συνολο", "ποσό", "ποσο"]):
-        if field_name in ["invoicetotal", "amountdue", "total"]:
-            score += 10
-
-    if any(word in q for word in ["vendor", "supplier", "προμηθευτής", "προμηθευτη"]):
-        if field_name in ["vendorname", "suppliername"]:
-            score += 10
-
-    if any(word in q for word in ["customer", "client", "πελάτης", "πελατης"]):
-        if field_name in ["customername"]:
-            score += 10
-
-    if any(word in q for word in ["due", "λήξη", "ληξη", "προθεσμία", "προθεσμια"]):
-        if field_name in ["duedate"]:
-            score += 10
-
-    # Line item / description search
-    if any(word in q for word in ["χρέωση", "χρεωση", "service", "υπηρεσία", "υπηρεσια", "item", "description", "περιγραφή", "περιγραφη"]):
-        if chunk_type == "line_item":
-            score += 3
-
-    # Basic word overlap
-    q_words = set(q.replace("?", "").replace(",", "").split())
-    t_words = set(chunk_text.replace("?", "").replace(",", "").split())
-
-    if q_words:
-        overlap = q_words.intersection(t_words)
-        score += len(overlap) / len(q_words)
-
-    return score
-
 
 def search_chunks(doc_id: str, question: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    if doc_id not in DOCUMENT_STORE:
-        raise ValueError("Document not found")
+    query_embedding = get_embedding(question)
 
-    scored_chunks = []
+    response = supabase.rpc("match_chunks", {
+        "query_embedding": query_embedding,
+        "match_threshold": 0.2,
+        "match_count": top_k,
+        "p_doc_id": doc_id
+    }).execute()
 
-    for chunk in DOCUMENT_STORE[doc_id]["chunks"]:
-        score = simple_score(question, chunk["text"], chunk)
-
-        scored_chunks.append({
-            **chunk,
-            "score": score
+    results = []
+    for row in response.data:
+        results.append({
+            "filename": row.get("filename"),
+            "page": row.get("page"),
+            "source_text": row.get("source_text"),
+            "polygon": row.get("polygon"),
+            "score": row.get("similarity", 0) * 10
         })
 
-    scored_chunks.sort(key=lambda x: x["score"], reverse=True)
+    return results
 
-    return scored_chunks[:top_k]
 
 def get_document(doc_id: str) -> Dict[str, Any]:
-    if doc_id not in DOCUMENT_STORE:
-        raise ValueError("Document not found"
+    doc_res = supabase.table("documents").select(
+        "*").eq("doc_id", doc_id).execute()
+    if not doc_res.data:
+        raise ValueError("Document not found")
 
-        )
+    doc_data = doc_res.data[0]
+    chunks_res = supabase.table("document_chunks").select(
+        "*").eq("doc_id", doc_id).execute()
 
-    return DOCUMENT_STORE[doc_id]
+    return {
+        "doc_id": doc_id,
+        "filename": doc_data["filename"],
+        "analysis": {
+            "fields": doc_data.get("fields"),
+            "line_items": doc_data.get("line_items")
+        },
+        "chunks": chunks_res.data
+    }
